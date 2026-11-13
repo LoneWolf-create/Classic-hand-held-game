@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>RETRO TETRIS // MOBILE ARCADE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =========================================
+           1. CSS VARIABLES & MOBILE RESET
+           ========================================= */
+        :root {
+            --bg-dark: #07070d;
+            --cabinet-bg: #11111e;
+            --cabinet-border: #2a2a4a;
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff007f;
+            --neon-yellow: #ffe600;
+            --neon-green: #00ff66;
+            --neon-purple: #b829ff;
+            --neon-orange: #ff6a00;
+            --neon-blue: #2962ff;
+            --text-main: #e0e6ff;
+            --text-dim: #7882a8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 35%, rgba(28, 28, 60, 0.75) 0%, rgba(7, 7, 13, 1) 85%);
+            color: var(--text-main);
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 
+                max(6px, env(safe-area-inset-top)) 
+                max(8px, env(safe-area-inset-right)) 
+                max(8px, env(safe-area-inset-bottom)) 
+                max(8px, env(safe-area-inset-left));
+        }
+
+        /* =========================================
+           2. CRT SCANLINE & VIGNETTE OVERLAY
+           ========================================= */
+        .crt-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.025), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.025));
+            background-size: 100% 4px, 6px 100%;
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.8);
+        }
+
+        /* =========================================
+           3. COMPACT TOP BAR (TITLE + UTILITY)
+           ========================================= */
+        header {
+            width: 100%;
+            max-width: 540px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-shrink: 0;
+            padding: 2px 4px;
+        }
+
+        h1 {
+            font-size: clamp(0.75rem, 3.4vw, 1.35rem);
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 
+                0 0 4px #fff,
+                0 0 10px var(--neon-cyan),
+                0 0 20px var(--neon-cyan);
+            white-space: nowrap;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-retro {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.52rem;
+            padding: 7px 8px;
+            color: #fff;
+            background: linear-gradient(180deg, #252545 0%, #141428 100%);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 0 #0b4f54, 0 0 8px rgba(0, 243, 255, 0.25);
+            touch-action: manipulation;
+        }
+
+        .btn-retro:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 #0b4f54;
+        }
+
+        .btn-retro.pink {
+            border-color: var(--neon-pink);
+            box-shadow: 0 2px 0 #660033, 0 0 8px rgba(255, 0, 127, 0.25);
+        }
+
+        /* =========================================
+           4. MAIN GAME ARENA (FLEXIBLE HEIGHT FILL)
+           ========================================= */
+        .arcade-wrapper {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            max-width: 540px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: var(--cabinet-bg);
+            padding: 8px;
+            border-radius: 12px;
+            border: 2px solid var(--cabinet-border);
+            box-shadow: 
+                0 0 25px rgba(0, 243, 255, 0.14),
+                inset 0 0 16px rgba(0, 0, 0, 0.8);
+            margin: 4px 0;
+        }
+
+        .board-frame {
+            position: relative;
+            flex-shrink: 0;
+            border: 3px solid var(--neon-cyan);
+            border-radius: 8px;
+            box-shadow: 
+                0 0 14px rgba(0, 243, 255, 0.4),
+                inset 0 0 12px rgba(0, 243, 255, 0.2);
+            background-color: #05050a;
+            overflow: hidden;
+            line-height: 0;
+            touch-action: none;
+        }
+
+        canvas#tetris-canvas {
+            display: block;
+            background-color: #05050a;
+        }
+
+        /* Side Info Panel - Stretches cleanly alongside board */
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-self: stretch;
+            gap: 6px;
+            min-width: 88px;
+            max-width: 132px;
+            flex: 0 1 112px;
+        }
+
+        .hud-box {
+            background: #090912;
+            border: 2px solid var(--cabinet-border);
+            border-radius: 7px;
+            padding: 6px 4px;
+            text-align: center;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hud-box.preview-box {
+            padding: 5px 4px;
+        }
+
+        .hud-label {
+            font-size: 0.48rem;
+            color: var(--neon-pink);
+            margin-bottom: 4px;
+            text-shadow: 0 0 6px rgba(255, 0, 127, 0.6);
+            letter-spacing: 0.5px;
+        }
+
+        .hud-value {
+            font-size: clamp(0.62rem, 2.6vw, 0.88rem);
+            color: #fff;
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.45);
+            word-break: break-all;
+        }
+
+        canvas.mini-canvas {
+            display: block;
+            margin: 0 auto;
+            background: #05050a;
+            border-radius: 4px;
+        }
+
+        .gesture-hint {
+            font-size: 0.42rem;
+            line-height: 1.45;
+            color: var(--text-dim);
+            text-align: center;
+            padding: 2px;
+        }
+
+        .gesture-hint span {
+            color: var(--neon-cyan);
+        }
+
+        /* =========================================
+           5. IN-CANVAS MODAL OVERLAYS
+           ========================================= */
+        .canvas-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 5, 12, 0.9);
+            backdrop-filter: blur(2px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .canvas-overlay.hidden {
+            display: none;
+        }
+
+        .overlay-title {
+            font-size: clamp(0.8rem, 3.5vw, 1.05rem);
+            color: var(--neon-yellow);
+            text-shadow: 0 0 12px rgba(255, 230, 0, 0.8);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .overlay-title.danger {
+            color: var(--neon-pink);
+            text-shadow: 0 0 14px rgba(255, 0, 127, 0.9);
+        }
+
+        .overlay-sub {
+            font-size: 0.5rem;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            line-height: 1.65;
+        }
+
+        .btn-start {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.65rem;
+            padding: 12px 14px;
+            color: #05050a;
+            background: var(--neon-green);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #008033, 0 0 16px rgba(0, 255, 102, 0.7);
+            animation: pulseBtn 1.5s infinite;
+            touch-action: manipulation;
+        }
+
+        .btn-start:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #008033;
+        }
+
+        @keyframes pulseBtn {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+
+        /* =========================================
+           6. ERGONOMIC THUMB PAD (PORTRAIT OPTIMIZED)
+           ========================================= */
+        .touch-controls {
+            flex-shrink: 0;
+            width: 100%;
+            max-width: 540px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--cabinet-bg);
+            border: 2px solid var(--cabinet-border);
+            border-radius: 14px;
+            box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .dpad-cluster {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            align-items: center;
+        }
+
+        .action-cluster {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            align-items: center;
+        }
+
+        .touch-btn {
+            height: 52px;
+            min-width: 0;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #242442 0%, #121224 100%);
+            border: 2px solid var(--neon-cyan);
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #093c40, 0 0 8px rgba(0, 243, 255, 0.22);
+            touch-action: none;
+        }
+
+        .touch-btn .btn-sub {
+            font-size: 0.36rem;
+            opacity: 0.85;
+            letter-spacing: 0.3px;
+        }
+
+        .touch-btn:active, .touch-btn.pressed {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #093c40;
+            background: #2f2f59;
+        }
+
+        .touch-btn.action-hold {
+            border-color: var(--neon-green);
+            box-shadow: 0 4px 0 #005924, 0 0 8px rgba(0, 255, 102, 0.22);
+            font-size: 0.52rem;
+        }
+
+        .touch-btn.action-drop {
+            border-color: var(--neon-pink);
+            box-shadow: 0 4px 0 #660033, 0 0 8px rgba(255, 0, 127, 0.22);
+            font-size: 0.52rem;
+        }
+
+        .touch-btn.action-rotate {
+            border-color: var(--neon-yellow);
+            box-shadow: 0 4px 0 #665c00, 0 0 8px rgba(255, 230, 0, 0.22);
+            font-size: 0.95rem;
+        }
+
+        /* =========================================
+           7. ULTRA-TALL / COMPACT HEIGHT ADAPTATION
+           ========================================= */
+        @media (max-height: 640px) {
+            .touch-btn {
+                height: 44px;
+            }
+            .hud-box {
+                padding: 4px 3px;
+            }
+            .gesture-hint {
+                display: none;
+            }
+        }
+
+        @media (min-width: 768px) and (orientation: landscape) {
+            .arcade-wrapper {
+                max-width: 580px;
+                gap: 16px;
+                padding: 12px;
+            }
+            .side-panel {
+                min-width: 124px;
+                max-width: 136px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+
+    <header>
+        <h1>TETRIS ARCADE</h1>
+        <div class="header-actions">
+            <button class="btn-retro" id="btn-pause" title="Pause (P)">PAUSE</button>
+            <button class="btn-retro pink" id="btn-sound" title="Toggle Sound">SFX:ON</button>
+        </div>
+    </header>
+
+    <main class="arcade-wrapper" id="arcade-wrapper">
+        <div class="board-frame" id="board-frame">
+            <canvas id="tetris-canvas"></canvas>
+
+            <div class="canvas-overlay" id="start-overlay">
+                <div class="overlay-title">INSERT COIN<br>TO PLAY</div>
+                <div class="overlay-sub">SWIPE OR USE PAD.<br>TAP BOARD TO ROTATE.</div>
+                <button class="btn-start" id="btn-start">START GAME</button>
+            </div>
+
+            <div class="canvas-overlay hidden" id="pause-overlay">
+                <div class="overlay-title">PAUSED</div>
+                <div class="overlay-sub">TAP RESUME TO CONTINUE</div>
+                <button class="btn-start" id="btn-resume">RESUME</button>
+            </div>
+
+            <div class="canvas-overlay hidden" id="gameover-overlay">
+                <div class="overlay-title danger">GAME OVER</div>
+                <div class="overlay-sub" id="final-stats">SCORE: 0<br>LINES: 0</div>
+                <button class="btn-start" id="btn-restart">PLAY AGAIN</button>
+            </div>
+        </div>
+
+        <aside class="side-panel" id="side-panel">
+            <div class="hud-box preview-box">
+                <div class="hud-label">NEXT</div>
+                <canvas class="mini-canvas" id="next-canvas" width="64" height="64"></canvas>
+            </div>
+
+            <div class="hud-box preview-box">
+                <div class="hud-label">HOLD</div>
+                <canvas class="mini-canvas" id="hold-canvas" width="64" height="64"></canvas>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-label">SCORE</div>
+                <div class="hud-value" id="score-val">0</div>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-label">BEST</div>
+                <div class="hud-value" id="high-score-val">0</div>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-label">LVL / LNS</div>
+                <div class="hud-value"><span id="level-val">1</span>-<span id="lines-val">0</span></div>
+            </div>
+
+            <div class="gesture-hint">
+                <span>TAP</span> ROTATE<br>
+                <span>FLICK ▲</span> DROP
+            </div>
+        </aside>
+    </main>
+
+    <section class="touch-controls" id="touch-controls" aria-label="Touch Controls">
+        <div class="dpad-cluster">
+            <button class="touch-btn" id="touch-left" aria-label="Move Left">◀</button>
+            <button class="touch-btn" id="touch-down" aria-label="Soft Drop">▼</button>
+            <button class="touch-btn" id="touch-right" aria-label="Move Right">▶</button>
+        </div>
+        <div class="action-cluster">
+            <button class="touch-btn action-hold" id="touch-hold" aria-label="Hold Piece">
+                <span>HOLD</span>
+                <span class="btn-sub">SWAP</span>
+            </button>
+            <button class="touch-btn action-drop" id="touch-drop" aria-label="Hard Drop">
+                <span>DROP</span>
+                <span class="btn-sub">HARD</span>
+            </button>
+            <button class="touch-btn action-rotate" id="touch-rotate" aria-label="Rotate">
+                <span>↻</span>
+                <span class="btn-sub">TURN</span>
+            </button>
+        </div>
+    </section>
+
+    <script>
+        /**
+         * ============================================================================
+         * RETRO ARCADE TETRIS - MOBILE PORTRAIT RATIO & TOUCH OPTIMIZED ENGINE
+         * ============================================================================
+         */
+
+        const COLS = 10;
+        const ROWS = 20;
+
+        const COLORS = {
+            0: null,
+            I: { main: '#00f3ff', light: '#99faff', dark: '#008c99' },
+            J: { main: '#2962ff', light: '#82a4ff', dark: '#002c99' },
+            L: { main: '#ff6a00', light: '#ffb380', dark: '#993f00' },
+            O: { main: '#ffe600', light: '#fff599', dark: '#998a00' },
+            S: { main: '#00ff66', light: '#99ffc2', dark: '#00993d' },
+            T: { main: '#b829ff', light: '#e099ff', dark: '#6a0099' },
+            Z: { main: '#ff0055', light: '#ff80aa', dark: '#990033' }
+        };
+
+        const SHAPES = {
+            I: [
+                [0, 0, 0, 0],
+                [1, 1, 1, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]
+            ],
+            J: [
+                [1, 0, 0],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            L: [
+                [0, 0, 1],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            O: [
+                [1, 1],
+                [1, 1]
+            ],
+            S: [
+                [0, 1, 1],
+                [1, 1, 0],
+                [0, 0, 0]
+            ],
+            T: [
+                [0, 1, 0],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            Z: [
+                [1, 1, 0],
+                [0, 1, 1],
+                [0, 0, 0]
+            ]
+        };
+
+        const LINE_POINTS = [0, 100, 300, 500, 800];
+
+        // ==========================================
+        // HAPTIC FEEDBACK HELPER
+        // ==========================================
+        function triggerHaptic(pattern) {
+            try {
+                if (navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            } catch (e) {}
+        }
+
+        // ==========================================
+        // RETRO WEB AUDIO SYNTHESIZER
+        // ==========================================
+        class SoundFX {
+            constructor() {
+                this.enabled = true;
+                this.ctx = null;
+                this.activeTimers = [];
+            }
+
+            init() {
+                try {
+                    if (!this.ctx) {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) this.ctx = new AudioCtx();
+                    }
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        this.ctx.resume().catch(() => {});
+                    }
+                } catch (e) {}
+            }
+
+            clearScheduled() {
+                while (this.activeTimers.length > 0) {
+                    clearTimeout(this.activeTimers.pop());
+                }
+            }
+
+            playTone(freq, type, duration, vol = 0.09, slideTo = null) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx || this.ctx.state !== 'running') return;
+
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(Math.max(20, freq), now);
+                    if (slideTo) {
+                        osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), now + duration);
+                    }
+
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + duration + 0.01);
+                } catch (e) {}
+            }
+
+            move() { this.playTone(220, 'square', 0.035, 0.045); }
+            rotate() { this.playTone(420, 'square', 0.06, 0.065, 620); }
+            hold() { this.playTone(330, 'triangle', 0.08, 0.07, 495); }
+            softDrop() { this.playTone(150, 'triangle', 0.025, 0.035); }
+            hardDrop() { this.playTone(180, 'sawtooth', 0.10, 0.10, 55); }
+            lock() { this.playTone(110, 'square', 0.06, 0.07, 75); }
+
+            lineClear(count) {
+                const notes = count === 4 ? [523.25, 659.25, 783.99, 1046.50] : [392.00, 523.25, 659.25];
+                const limit = count === 4 ? notes.length : Math.min(count, notes.length);
+                for (let i = 0; i < limit; i++) {
+                    const id = setTimeout(() => this.playTone(notes[i], 'square', 0.12, 0.10), i * 70);
+                    this.activeTimers.push(id);
+                }
+            }
+
+            levelUp() {
+                [440, 554.37, 659.25, 880].forEach((n, idx) => {
+                    const id = setTimeout(() => this.playTone(n, 'triangle', 0.13, 0.11), idx * 75);
+                    this.activeTimers.push(id);
+                });
+            }
+
+            gameOver() {
+                [330, 293.66, 261.63, 196.00].forEach((n, idx) => {
+                    const id = setTimeout(() => this.playTone(n, 'sawtooth', 0.18, 0.10), idx * 135);
+                    this.activeTimers.push(id);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // ==========================================
+        // DOM ELEMENTS & CANVAS SETUP
+        // ==========================================
+        const canvas = document.getElementById('tetris-canvas');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('next-canvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        const holdCanvas = document.getElementById('hold-canvas');
+        const holdCtx = holdCanvas.getContext('2d');
+
+        const scoreEl = document.getElementById('score-val');
+        const highScoreEl = document.getElementById('high-score-val');
+        const levelEl = document.getElementById('level-val');
+        const linesEl = document.getElementById('lines-val');
+
+        const startOverlay = document.getElementById('start-overlay');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        const gameoverOverlay = document.getElementById('gameover-overlay');
+        const finalStatsEl = document.getElementById('final-stats');
+
+        const btnStart = document.getElementById('btn-start');
+        const btnResume = document.getElementById('btn-resume');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnPause = document.getElementById('btn-pause');
+        const btnSound = document.getElementById('btn-sound');
+
+        let blockSize = 26;
+        let logicalWidth = COLS * blockSize;
+        let logicalHeight = ROWS * blockSize;
+        let miniLogicalSize = 64;
+
+        // ==========================================
+        // GAME STATE & 7-BAG RANDOMIZER
+        // ==========================================
+        function createEmptyBoard() {
+            return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        }
+
+        function loadHighScore() {
+            try {
+                return parseInt(localStorage.getItem('retro_tetris_high') || '0', 10) || 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function saveHighScore(val) {
+            try {
+                localStorage.setItem('retro_tetris_high', String(val));
+            } catch (e) {}
+        }
+
+        let board = createEmptyBoard();
+        let pieceBag = [];
+        let activePiece = null;
+        let nextPieceType = null;
+        let holdPieceType = null;
+        let canHold = true;
+
+        let score = 0;
+        let highScore = loadHighScore();
+        let level = 1;
+        let lines = 0;
+
+        let isRunning = false;
+        let isPaused = false;
+        let isGameOver = false;
+
+        let dropCounter = 0;
+        let dropInterval = 1000;
+        let lastTime = 0;
+        let animationFrameId = null;
+
+        let flashRows = [];
+        let flashTimer = 0;
+        const LINE_CLEAR_DURATION = 460;
+        let isClearingLines = false;
+
+        highScoreEl.textContent = highScore;
+
+        function refillBag() {
+            const types = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+            for (let i = types.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [types[i], types[j]] = [types[j], types[i]];
+            }
+            pieceBag.push(...types);
+        }
+
+        function pullNextType() {
+            if (pieceBag.length === 0) refillBag();
+            return pieceBag.pop();
+        }
+
+        function createPiece(type) {
+            const matrix = SHAPES[type].map(row => [...row]);
+            return {
+                type: type,
+                matrix: matrix,
+                x: Math.floor((COLS - matrix[0].length) / 2),
+                y: type === 'I' ? -1 : 0
+            };
+        }
+
+        function spawnNextPiece() {
+            if (!nextPieceType) nextPieceType = pullNextType();
+            const currentType = nextPieceType;
+            nextPieceType = pullNextType();
+            activePiece = createPiece(currentType);
+            canHold = true;
+
+            drawPreviewCanvas(nextCtx, nextPieceType, false);
+            drawPreviewCanvas(holdCtx, holdPieceType, !canHold);
+
+            if (collide(board, activePiece, 0, 0)) {
+                triggerGameOver();
+            }
+        }
+
+        function holdCurrentPiece() {
+            if (!activePiece || !canHold || isPaused || !isRunning || isGameOver || isClearingLines) return;
+            sfx.hold();
+            triggerHaptic(15);
+
+            const currentType = activePiece.type;
+            if (holdPieceType === null) {
+                holdPieceType = currentType;
+                spawnNextPiece();
+            } else {
+                const swapType = holdPieceType;
+                holdPieceType = currentType;
+                activePiece = createPiece(swapType);
+                if (collide(board, activePiece, 0, 0)) {
+                    triggerGameOver();
+                    return;
+                }
+            }
+            canHold = false;
+            dropCounter = 0;
+            drawPreviewCanvas(holdCtx, holdPieceType, true);
+            draw();
+        }
+
+        // ==========================================
+        // PORTRAIT RATIO SCREEN FILL CALCULATOR
+        // ==========================================
+        function resizeCanvases() {
+            const vp = window.visualViewport;
+            const winW = Math.max(280, vp ? vp.width : window.innerWidth);
+            const winH = Math.max(440, vp ? vp.height : window.innerHeight);
+            const isPortrait = winH >= winW;
+            const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3);
+
+            const headerEl = document.querySelector('header');
+            const touchEl = document.getElementById('touch-controls');
+            const wrapperEl = document.getElementById('arcade-wrapper');
+            const sidePanel = document.getElementById('side-panel');
+
+            const headerH = headerEl ? headerEl.offsetHeight : 34;
+            const touchH = touchEl ? touchEl.offsetHeight : 68;
+
+            // Body vertical padding (~14px) + wrapper margins/padding/border (~26px) + board border (6px)
+            const verticalChrome = headerH + touchH + 46;
+            const availableHeight = Math.max(240, winH - verticalChrome);
+
+            // Maximize height fill first in portrait, leaving compact ergonomic width for HUD
+            const minSideW = isPortrait ? 88 : 114;
+            const horizontalChrome = 16 + 16 + 10 + 6; // body pad + wrapper pad + gap + border
+            const maxBoardW = Math.max(150, winW - horizontalChrome - minSideW);
+
+            // Exact integer block size maximizing 10:20 aspect ratio fill
+            const blockByHeight = Math.floor(availableHeight / ROWS);
+            const blockByWidth = Math.floor(maxBoardW / COLS);
+            blockSize = Math.max(14, Math.min(40, blockByHeight, blockByWidth));
+
+            logicalWidth = COLS * blockSize;
+            logicalHeight = ROWS * blockSize;
+
+            canvas.style.width = `${logicalWidth}px`;
+            canvas.style.height = `${logicalHeight}px`;
+            canvas.width = Math.round(logicalWidth * dpr);
+            canvas.height = Math.round(logicalHeight * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // Size side-panel width proportionally to fill remaining horizontal space cleanly
+            if (wrapperEl && sidePanel) {
+                const remainingW = Math.min(480, winW - 16) - logicalWidth - 32;
+                const targetSideW = Math.max(88, Math.min(136, remainingW));
+                sidePanel.style.width = `${targetSideW}px`;
+                sidePanel.style.flexBasis = `${targetSideW}px`;
+            }
+
+            // Scale Next & Hold canvases dynamically based on available vertical space
+            miniLogicalSize = Math.max(44, Math.min(72, Math.floor(logicalHeight / 7.8)));
+            [nextCanvas, holdCanvas].forEach((c, idx) => {
+                c.style.width = `${miniLogicalSize}px`;
+                c.style.height = `${miniLogicalSize}px`;
+                c.width = Math.round(miniLogicalSize * dpr);
+                c.height = Math.round(miniLogicalSize * dpr);
+                const targetCtx = idx === 0 ? nextCtx : holdCtx;
+                targetCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            });
+
+            draw();
+            drawPreviewCanvas(nextCtx, nextPieceType, false);
+            drawPreviewCanvas(holdCtx, holdPieceType, !canHold);
+        }
+
+        // ==========================================
+        // COLLISION, ROTATION & WALL KICKS
+        // ==========================================
+        function collide(grid, piece, offsetX = 0, offsetY = 0, testMatrix = null) {
+            if (!piece) return false;
+            const mat = testMatrix || piece.matrix;
+            for (let r = 0; r < mat.length; r++) {
+                for (let c = 0; c < mat[r].length; c++) {
+                    if (!mat[r][c]) continue;
+                    const newX = piece.x + c + offsetX;
+                    const newY = piece.y + r + offsetY;
+                    if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+                    if (newY >= 0 && grid[newY][newX] !== 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function rotateMatrix(matrix, dir = 1) {
+            const N = matrix.length;
+            const rotated = Array.from({ length: N }, () => Array(N).fill(0));
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (dir > 0) rotated[c][N - 1 - r] = matrix[r][c];
+                    else rotated[N - 1 - c][r] = matrix[r][c];
+                }
+            }
+            return rotated;
+        }
+
+        function rotateActivePiece(dir = 1) {
+            if (!activePiece || isPaused || !isRunning || isGameOver || isClearingLines) return;
+            if (activePiece.type === 'O') return;
+
+            const rotated = rotateMatrix(activePiece.matrix, dir);
+            const kicks = activePiece.type === 'I'
+                ? [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0], [0, -1], [0, -2]]
+                : [[0, 0], [-1, 0], [1, 0], [0, -1], [-1, -1], [1, -1]];
+
+            for (const [kx, ky] of kicks) {
+                if (!collide(board, activePiece, kx, ky, rotated)) {
+                    activePiece.matrix = rotated;
+                    activePiece.x += kx;
+                    activePiece.y += ky;
+                    sfx.rotate();
+                    triggerHaptic(10);
+                    draw();
+                    return;
+                }
+            }
+        }
+
+        // ==========================================
+        // MOVEMENT, DROPS & LINE CLEARING
+        // ==========================================
+        function moveHorizontal(dir) {
+            if (!activePiece || isPaused || !isRunning || isGameOver || isClearingLines) return false;
+            if (!collide(board, activePiece, dir, 0)) {
+                activePiece.x += dir;
+                sfx.move();
+                triggerHaptic(8);
+                draw();
+                return true;
+            }
+            return false;
+        }
+
+        function softDrop() {
+            if (!activePiece || isPaused || !isRunning || isGameOver || isClearingLines) return false;
+            if (!collide(board, activePiece, 0, 1)) {
+                activePiece.y++;
+                score += 1;
+                updateHUD();
+                sfx.softDrop();
+                dropCounter = 0;
+                draw();
+                return true;
+            } else {
+                lockPiece();
+                return false;
+            }
+        }
+
+        function hardDrop() {
+            if (!activePiece || isPaused || !isRunning || isGameOver || isClearingLines) return;
+            let cellsDropped = 0;
+            while (!collide(board, activePiece, 0, 1)) {
+                activePiece.y++;
+                cellsDropped++;
+            }
+            score += cellsDropped * 2;
+            updateHUD();
+            sfx.hardDrop();
+            triggerHaptic(28);
+            lockPiece();
+            draw();
+        }
+
+        function getGhostY() {
+            if (!activePiece) return 0;
+            let ghostY = activePiece.y;
+            while (!collide(board, activePiece, 0, ghostY - activePiece.y + 1)) {
+                ghostY++;
+            }
+            return ghostY;
+        }
+
+        function lockPiece() {
+            if (!activePiece) return;
+
+            for (let r = 0; r < activePiece.matrix.length; r++) {
+                for (let c = 0; c < activePiece.matrix[r].length; c++) {
+                    if (activePiece.matrix[r][c]) {
+                        const boardY = activePiece.y + r;
+                        const boardX = activePiece.x + c;
+                        if (boardY < 0) {
+                            triggerGameOver();
+                            return;
+                        }
+                        board[boardY][boardX] = activePiece.type;
+                    }
+                }
+            }
+
+            sfx.lock();
+            activePiece = null;
+
+            if (!startLineClearAnimation()) {
+                spawnNextPiece();
+            }
+        }
+
+        function startLineClearAnimation() {
+            const clearedIndices = [];
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell !== 0)) {
+                    clearedIndices.push(r);
+                }
+            }
+
+            if (clearedIndices.length > 0) {
+                flashRows = clearedIndices;
+                flashTimer = LINE_CLEAR_DURATION;
+                isClearingLines = true;
+                sfx.lineClear(clearedIndices.length);
+                triggerHaptic(clearedIndices.length === 4 ? [40, 30, 60] : [30, 20, 30]);
+                return true;
+            }
+            return false;
+        }
+
+        function finalizeLineClear() {
+            if (flashRows.length === 0) {
+                isClearingLines = false;
+                return;
+            }
+
+            const count = flashRows.length;
+            const rowSet = new Set(flashRows);
+            const remainingRows = board.filter((_, idx) => !rowSet.has(idx));
+            const newEmptyRows = Array.from({ length: count }, () => Array(COLS).fill(0));
+            board = [...newEmptyRows, ...remainingRows];
+
+            lines += count;
+            score += (LINE_POINTS[count] || 800) * level;
+
+            const newLevel = Math.floor(lines / 10) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                dropInterval = Math.max(90, Math.floor(1000 * Math.pow(0.84, level - 1)));
+                sfx.levelUp();
+            }
+
+            flashRows = [];
+            flashTimer = 0;
+            isClearingLines = false;
+            dropCounter = 0;
+
+            updateHUD();
+            spawnNextPiece();
+        }
+
+        function updateHUD() {
+            scoreEl.textContent = score;
+            linesEl.textContent = lines;
+            levelEl.textContent = level;
+
+            if (score > highScore) {
+                highScore = score;
+                highScoreEl.textContent = highScore;
+                saveHighScore(highScore);
+            }
+        }
+
+        // ==========================================
+        // RENDERING ENGINE
+        // ==========================================
+        function drawArcadeBlock(targetCtx, gridX, gridY, size, type, isGhost = false, dimmed = false) {
+            const color = COLORS[type];
+            if (!color) return;
+
+            const px = gridX * size;
+            const py = gridY * size;
+            const pad = 1;
+            const innerSize = size - pad * 2;
+            const bevel = Math.max(2, Math.floor(size * 0.14));
+
+            if (isGhost) {
+                targetCtx.save();
+                targetCtx.strokeStyle = color.main;
+                targetCtx.globalAlpha = 0.36;
+                targetCtx.lineWidth = 1.5;
+                targetCtx.strokeRect(px + 2, py + 2, size - 4, size - 4);
+                targetCtx.fillStyle = color.main;
+                targetCtx.globalAlpha = 0.10;
+                targetCtx.fillRect(px + 2, py + 2, size - 4, size - 4);
+                targetCtx.restore();
+                return;
+            }
+
+            targetCtx.save();
+            if (dimmed) targetCtx.globalAlpha = 0.42;
+
+            targetCtx.fillStyle = color.main;
+            targetCtx.fillRect(px + pad, py + pad, innerSize, innerSize);
+
+            targetCtx.fillStyle = color.light;
+            targetCtx.beginPath();
+            targetCtx.moveTo(px + pad, py + pad);
+            targetCtx.lineTo(px + size - pad, py + pad);
+            targetCtx.lineTo(px + size - pad - bevel, py + pad + bevel);
+            targetCtx.lineTo(px + pad + bevel, py + pad + bevel);
+            targetCtx.lineTo(px + pad + bevel, py + size - pad - bevel);
+            targetCtx.lineTo(px + pad, py + size - pad);
+            targetCtx.closePath();
+            targetCtx.fill();
+
+            targetCtx.fillStyle = color.dark;
+            targetCtx.beginPath();
+            targetCtx.moveTo(px + size - pad, py + size - pad);
+            targetCtx.lineTo(px + pad, py + size - pad);
+            targetCtx.lineTo(px + pad + bevel, py + size - pad - bevel);
+            targetCtx.lineTo(px + size - pad - bevel, py + size - pad - bevel);
+            targetCtx.lineTo(px + size - pad - bevel, py + pad + bevel);
+            targetCtx.lineTo(px + size - pad, py + pad);
+            targetCtx.closePath();
+            targetCtx.fill();
+
+            targetCtx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            targetCtx.fillRect(px + pad + bevel + 1, py + pad + bevel + 1, Math.max(2, bevel), Math.max(2, bevel));
+            targetCtx.restore();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#05050a';
+            ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.06)';
+            ctx.lineWidth = 1;
+            for (let c = 1; c < COLS; c++) {
+                ctx.beginPath();
+                ctx.moveTo(c * blockSize, 0);
+                ctx.lineTo(c * blockSize, logicalHeight);
+                ctx.stroke();
+            }
+            for (let r = 1; r < ROWS; r++) {
+                ctx.beginPath();
+                ctx.moveTo(0, r * blockSize);
+                ctx.lineTo(logicalWidth, r * blockSize);
+                ctx.stroke();
+            }
+
+            const elapsedFlash = Math.max(0, LINE_CLEAR_DURATION - flashTimer);
+            const blinkPhase = Math.floor(elapsedFlash / (LINE_CLEAR_DURATION / 6));
+            const isFlashLit = isClearingLines && (blinkPhase % 2 === 0);
+            const blinkingRowSet = isClearingLines ? new Set(flashRows) : null;
+
+            for (let r = 0; r < ROWS; r++) {
+                const isRowBlinking = blinkingRowSet && blinkingRowSet.has(r);
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c] !== 0) {
+                        if (isRowBlinking) {
+                            if (isFlashLit) {
+                                const px = c * blockSize;
+                                const py = r * blockSize;
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillRect(px + 1, py + 1, blockSize - 2, blockSize - 2);
+                                ctx.fillStyle = 'rgba(0, 243, 255, 0.45)';
+                                ctx.fillRect(px + 3, py + 3, Math.max(2, blockSize - 6), Math.max(2, blockSize - 6));
+                            }
+                        } else {
+                            drawArcadeBlock(ctx, c, r, blockSize, board[r][c], false);
+                        }
+                    }
+                }
+            }
+
+            if (activePiece && isRunning && !isClearingLines) {
+                const ghostY = getGhostY();
+                for (let r = 0; r < activePiece.matrix.length; r++) {
+                    for (let c = 0; c < activePiece.matrix[r].length; c++) {
+                        if (activePiece.matrix[r][c]) {
+                            if (ghostY + r >= 0) {
+                                drawArcadeBlock(ctx, activePiece.x + c, ghostY + r, blockSize, activePiece.type, true);
+                            }
+                            if (activePiece.y + r >= 0) {
+                                drawArcadeBlock(ctx, activePiece.x + c, activePiece.y + r, blockSize, activePiece.type, false);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isClearingLines && isFlashLit && flashRows.length > 0) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+                for (const rowIdx of flashRows) {
+                    ctx.fillRect(0, rowIdx * blockSize, logicalWidth, blockSize);
+                }
+            }
+        }
+
+        function drawPreviewCanvas(targetCtx, pieceType, dimmed = false) {
+            targetCtx.fillStyle = '#05050a';
+            targetCtx.fillRect(0, 0, miniLogicalSize, miniLogicalSize);
+
+            if (!pieceType) return;
+            const matrix = SHAPES[pieceType];
+            const miniBlock = Math.floor(miniLogicalSize / 4.4);
+
+            let minR = matrix.length, maxR = -1, minC = matrix[0].length, maxC = -1;
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[r].length; c++) {
+                    if (matrix[r][c]) {
+                        minR = Math.min(minR, r);
+                        maxR = Math.max(maxR, r);
+                        minC = Math.min(minC, c);
+                        maxC = Math.max(maxC, c);
+                    }
+                }
+            }
+
+            const pieceCols = maxC - minC + 1;
+            const pieceRows = maxR - minR + 1;
+            const offsetX = (miniLogicalSize - pieceCols * miniBlock) / 2 - minC * miniBlock;
+            const offsetY = (miniLogicalSize - pieceRows * miniBlock) / 2 - minR * miniBlock;
+
+            targetCtx.save();
+            targetCtx.translate(offsetX, offsetY);
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[r].length; c++) {
+                    if (matrix[r][c]) {
+                        drawArcadeBlock(targetCtx, c, r, miniBlock, pieceType, false, dimmed);
+                    }
+                }
+            }
+            targetCtx.restore();
+        }
+
+        // ==========================================
+        // MAIN GAME LOOP & LIFECYCLE
+        // ==========================================
+        function gameLoop(time = 0) {
+            if (!isRunning) return;
+
+            const deltaTime = Math.min(100, Math.max(0, time - lastTime));
+            lastTime = time;
+
+            if (!isPaused && !isGameOver) {
+                if (isClearingLines) {
+                    flashTimer = Math.max(0, flashTimer - deltaTime);
+                    if (flashTimer === 0) finalizeLineClear();
+                } else {
+                    dropCounter += deltaTime;
+                    if (dropCounter >= dropInterval) {
+                        if (activePiece && !collide(board, activePiece, 0, 1)) {
+                            activePiece.y++;
+                        } else {
+                            lockPiece();
+                        }
+                        dropCounter = 0;
+                    }
+                }
+                draw();
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            sfx.clearScheduled();
+            sfx.init();
+
+            board = createEmptyBoard();
+            pieceBag = [];
+            activePiece = null;
+            nextPieceType = null;
+            holdPieceType = null;
+            canHold = true;
+
+            score = 0;
+            level = 1;
+            lines = 0;
+            dropInterval = 1000;
+            dropCounter = 0;
+
+            flashRows = [];
+            flashTimer = 0;
+            isClearingLines = false;
+
+            isRunning = true;
+            isPaused = false;
+            isGameOver = false;
+
+            startOverlay.classList.add('hidden');
+            pauseOverlay.classList.add('hidden');
+            gameoverOverlay.classList.add('hidden');
+            btnPause.textContent = 'PAUSE';
+
+            updateHUD();
+            spawnNextPiece();
+            resizeCanvases();
+
+            lastTime = performance.now();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function togglePause() {
+            if (!isRunning || isGameOver) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseOverlay.classList.remove('hidden');
+                btnPause.textContent = 'RESUME';
+            } else {
+                pauseOverlay.classList.add('hidden');
+                btnPause.textContent = 'PAUSE';
+                lastTime = performance.now();
+            }
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            isRunning = false;
+            isClearingLines = false;
+            flashRows = [];
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            sfx.gameOver();
+            triggerHaptic([80, 50, 120]);
+            finalStatsEl.innerHTML = `SCORE: ${score}<br>LINES: ${lines}`;
+            gameoverOverlay.classList.remove('hidden');
+        }
+
+        // Auto-pause if user switches apps or locks phone screen
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isRunning && !isPaused && !isGameOver) {
+                togglePause();
+            }
+        });
+
+        // ==========================================
+        // DIRECT BOARD TOUCH GESTURES (SWIPE / DRAG / TAP)
+        // ==========================================
+        const boardFrame = document.getElementById('board-frame');
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastStepX = 0;
+        let lastStepY = 0;
+        let touchStartTime = 0;
+        let gestureMoved = false;
+
+        boardFrame.addEventListener('touchstart', (e) => {
+            if (!isRunning || isPaused || isGameOver) return;
+            if (e.target.closest('button')) return;
+            if (e.cancelable) e.preventDefault();
+            sfx.init();
+
+            const t = e.touches[0];
+            touchStartX = lastStepX = t.clientX;
+            touchStartY = lastStepY = t.clientY;
+            touchStartTime = performance.now();
+            gestureMoved = false;
+        }, { passive: false });
+
+        boardFrame.addEventListener('touchmove', (e) => {
+            if (!isRunning || isPaused || isGameOver || isClearingLines) return;
+            if (e.cancelable) e.preventDefault();
+
+            const t = e.touches[0];
+            const stepThresholdX = Math.max(18, blockSize * 0.95);
+            const stepThresholdY = Math.max(20, blockSize * 1.0);
+
+            const dx = t.clientX - lastStepX;
+            const dy = t.clientY - lastStepY;
+
+            if (Math.abs(dx) >= stepThresholdX) {
+                const steps = Math.trunc(dx / stepThresholdX);
+                const dir = steps > 0 ? 1 : -1;
+                for (let i = 0; i < Math.abs(steps); i++) {
+                    moveHorizontal(dir);
+                }
+                lastStepX += steps * stepThresholdX;
+                gestureMoved = true;
+            }
+
+            if (dy >= stepThresholdY) {
+                const steps = Math.trunc(dy / stepThresholdY);
+                for (let i = 0; i < steps; i++) {
+                    softDrop();
+                }
+                lastStepY += steps * stepThresholdY;
+                gestureMoved = true;
+            }
+        }, { passive: false });
+
+        boardFrame.addEventListener('touchend', (e) => {
+            if (!isRunning || isPaused || isGameOver) return;
+            if (e.target.closest('button')) return;
+
+            const t = e.changedTouches[0];
+            const totalDx = t.clientX - touchStartX;
+            const totalDy = t.clientY - touchStartY;
+            const elapsed = performance.now() - touchStartTime;
+
+            // Quick upward flick triggers Hard Drop
+            if (totalDy < -42 && Math.abs(totalDy) > Math.abs(totalDx) * 1.3 && elapsed < 320) {
+                hardDrop();
+                return;
+            }
+
+            // Quick tap without dragging rotates piece clockwise
+            if (!gestureMoved && Math.abs(totalDx) < 14 && Math.abs(totalDy) < 14 && elapsed < 260) {
+                rotateActivePiece(1);
+            }
+        });
+
+        // ==========================================
+        // KEYBOARD & ON-SCREEN THUMB PAD HANDLERS
+        // ==========================================
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+            if (e.key === 'p' || e.key === 'P') {
+                togglePause();
+                return;
+            }
+            if (!isRunning || isPaused || isGameOver || isClearingLines) return;
+
+            switch (e.key) {
+                case 'ArrowLeft': case 'a': case 'A': moveHorizontal(-1); break;
+                case 'ArrowRight': case 'd': case 'D': moveHorizontal(1); break;
+                case 'ArrowDown': case 's': case 'S': softDrop(); break;
+                case 'ArrowUp': case 'x': case 'X': case 'w': case 'W': rotateActivePiece(1); break;
+                case 'z': case 'Z': rotateActivePiece(-1); break;
+                case 'c': case 'C': case 'Shift': holdCurrentPiece(); break;
+                case ' ': hardDrop(); break;
+            }
+        });
+
+        function bindRepeatableTouch(btnId, actionFn, initialDelay = 155, repeatRate = 52) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+
+            let delayTimeout = null;
+            let repeatInterval = null;
+
+            const stopRepeat = () => {
+                btn.classList.remove('pressed');
+                if (delayTimeout) clearTimeout(delayTimeout);
+                if (repeatInterval) clearInterval(repeatInterval);
+                delayTimeout = null;
+                repeatInterval = null;
+            };
+
+            const startAction = (e) => {
+                if (e.cancelable) e.preventDefault();
+                sfx.init();
+                stopRepeat();
+                btn.classList.add('pressed');
+                actionFn();
+                delayTimeout = setTimeout(() => {
+                    repeatInterval = setInterval(actionFn, repeatRate);
+                }, initialDelay);
+            };
+
+            btn.addEventListener('touchstart', startAction, { passive: false });
+            btn.addEventListener('mousedown', startAction);
+            btn.addEventListener('touchend', stopRepeat);
+            btn.addEventListener('touchcancel', stopRepeat);
+            btn.addEventListener('mouseup', stopRepeat);
+            btn.addEventListener('mouseleave', stopRepeat);
+        }
+
+        function bindSingleTouch(btnId, actionFn) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+
+            const trigger = (e) => {
+                if (e.cancelable) e.preventDefault();
+                sfx.init();
+                btn.classList.add('pressed');
+                actionFn();
+                setTimeout(() => btn.classList.remove('pressed'), 95);
+            };
+
+            btn.addEventListener('touchstart', trigger, { passive: false });
+            btn.addEventListener('mousedown', trigger);
+        }
+
+        bindRepeatableTouch('touch-left', () => moveHorizontal(-1));
+        bindRepeatableTouch('touch-right', () => moveHorizontal(1));
+        bindRepeatableTouch('touch-down', () => softDrop(), 125, 45);
+        bindSingleTouch('touch-hold', () => holdCurrentPiece());
+        bindSingleTouch('touch-drop', () => hardDrop());
+        bindSingleTouch('touch-rotate', () => rotateActivePiece(1));
+
+        btnStart.addEventListener('click', startGame);
+        btnResume.addEventListener('click', togglePause);
+        btnRestart.addEventListener('click', startGame);
+        btnPause.addEventListener('click', togglePause);
+
+        btnSound.addEventListener('click', () => {
+            sfx.enabled = !sfx.enabled;
+            btnSound.textContent = sfx.enabled ? 'SFX:ON' : 'SFX:OFF';
+            if (sfx.enabled) {
+                sfx.init();
+                sfx.move();
+            }
+        });
+
+        window.addEventListener('resize', resizeCanvases);
+        window.addEventListener('orientationchange', () => setTimeout(resizeCanvases, 120));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', resizeCanvases);
+        }
+        window.addEventListener('load', resizeCanvases);
+
+        resizeCanvases();
+    </script>
+</body>
+</html>
+
